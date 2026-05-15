@@ -195,10 +195,8 @@ def main():
         logger.error(f"❌ ОШИБКА API Google Sheets: {e}")
         logger.error(f"   Проверь права доступа сервисного аккаунта")
         return
-    except gspread.exceptions.AuthenticationError as e:
-        logger.error(f"❌ ОШИБКА АУТЕНТИФИКАЦИИ: {e}")
-        logger.error(f"   Проверь GOOGLE_CREDENTIALS в секретах")
-        return
+    
+
     except Exception as e:
         logger.error(f"❌ Неожиданная ошибка: {type(e).__name__}: {str(e)}")
         logger.error(f"Traceback:\n{traceback.format_exc()}")
