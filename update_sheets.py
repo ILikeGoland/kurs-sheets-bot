@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Автоматический парсер курсов валют с banki.ru
+GitHub Actions работает в UTC (Москва = UTC+3)
 """
 
 import os
@@ -14,26 +15,46 @@ from google.oauth2.service_account import Credentials
 import logging
 import json
 import traceback
+from datetime import datetime
+import pytz
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Настройка времени в логах (московское время)
+moscow_tz = pytz.timezone('Europe/Moscow')
+logging.Formatter.converter = lambda *args: datetime.now(moscow_tz).timetuple()
+logging.basicConfig(
+    level=logging.INFO, 
+    format='%(asctime)s MSK - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 logger = logging.getLogger(__name__)
 
-# Читаем ID и удаляем лишние пробелы по краям
+# Читаем переменные окружения
 SPREADSHEET_ID = os.environ.get("SPREADSHEET_ID", "").strip()
 CURRENCIES_TO_PARSE = os.environ.get("CURRENCIES", "USD,EUR,GBP,CHF,JPY,CNY,AED,TRY,THB,EGP,KZT,BYN").split(",")
 
 def init_google_sheets():
+    logger.info("🔑 Начинаю инициализацию Google Sheets...")
     try:
         creds_json = os.environ.get("GOOGLE_CREDENTIALS")
         if not creds_json:
             raise ValueError("GOOGLE_CREDENTIALS не установлена")
+        logger.info("📄 GOOGLE_CREDENTIALS найдена")
+        
         creds_data = json.loads(creds_json)
-        creds = Credentials.from_service_account_info(creds_data, scopes=["https://www.googleapis.com/auth/spreadsheets"])
+        logger.info("✅ JSON ключей распарсен")
+        
+        creds = Credentials.from_service_account_info(
+            creds_data, 
+            scopes=["https://www.googleapis.com/auth/spreadsheets"]
+        )
         client = gspread.authorize(creds)
         logger.info("✅ Авторизация в Google Sheets успешна")
         return client
+    except json.JSONDecodeError as e:
+        logger.error(f"❌ Ошибка парсинга JSON ключей: {e}")
+        raise
     except Exception as e:
-        logger.error(f"❌ Ошибка авторизации: {e}")
+        logger.error(f"❌ Ошибка авторизации: {type(e).__name__}: {str(e)}")
         raise
 
 def get_or_create_sheet(workbook, currency_code):
@@ -42,7 +63,7 @@ def get_or_create_sheet(workbook, currency_code):
         sheet = workbook.worksheet(currency_upper)
         logger.info(f"📄 Лист '{currency_upper}' найден")
     except gspread.exceptions.WorksheetNotFound:
-        logger.info(f" Лист '{currency_upper}' не найден, создаю...")
+        logger.info(f"📄 Лист '{currency_upper}' не найден, создаю...")
         sheet = workbook.add_worksheet(title=currency_upper, rows=200, cols=20)
         headers = ["Название банка", f"Покупка {currency_upper}", f"Продажа {currency_upper}", "Время обновления"]
         sheet.update('A2:D2', [headers])
@@ -134,23 +155,56 @@ def update_sheet_data(sheet, data, currency_code):
         return False
 
 def main():
-    logger.info("🚀 Запуск парсера курсов валют")
-    logger.info(f"Используемый ID таблицы: '{SPREADSHEET_ID}'") # Выводим ID для проверки
+    logger.info("=" * 70)
+    logger.info("🚀 ЗАПУСК ПАРСЕРА КУРСОВ ВАЛЮТ")
+    logger.info("=" * 70)
+    
+    # Проверяем переменные окружения
+    logger.info("📋 ПРОВЕРКА ПЕРЕМЕННЫХ ОКРУЖЕНИЯ:")
+    logger.info(f"   SPREADSHEET_ID длина: {len(SPREADSHEET_ID)} символов")
+    logger.info(f"   SPREADSHEET_ID пустой? {not SPREADSHEET_ID}")
+    logger.info(f"   CURRENCIES: {', '.join(CURRENCIES_TO_PARSE)}")
+    logger.info("=" * 70)
     
     if not SPREADSHEET_ID:
-        logger.error(" Не указан SPREADSHEET_ID")
+        logger.error("❌ ОШИБКА: SPREADSHEET_ID не установлен!")
+        logger.error("   Проверь Settings → Secrets and variables → Actions")
         return
     
+    if len(SPREADSHEET_ID) != 44:
+        logger.warning(f"⚠️ ВНИМАНИЕ: Длина SPREADSHEET_ID = {len(SPREADSHEET_ID)} (ожидается 44)")
+    
+    # Пробуем подключиться к Google Sheets
     try:
+        logger.info("🔄 Инициализация Google Sheets...")
         client = init_google_sheets()
+        
+        logger.info(f"🔄 Открываю таблицу по ID...")
         workbook = client.open_by_key(SPREADSHEET_ID)
-        logger.info(f"✅ Таблица открыта успешно")
+        logger.info(f"✅ ТАБЛИЦА ОТКРЫТА УСПЕШНО!")
+        logger.info(f"   Название таблицы: {workbook.title}")
+        
+    except gspread.exceptions.SpreadsheetNotFound:
+        logger.error("❌ ОШИБКА: Таблица не найдена (SpreadsheetNotFound)")
+        logger.error(f"   Возможные причины:")
+        logger.error(f"   1. Неверный ID таблицы")
+        logger.error(f"   2. Сервисный аккаунт НЕ добавлен в настройки доступа таблицы")
+        logger.error(f"   3. Google Sheets API не включён в Google Cloud Console")
+        return
+    except gspread.exceptions.APIError as e:
+        logger.error(f"❌ ОШИБКА API Google Sheets: {e}")
+        logger.error(f"   Проверь права доступа сервисного аккаунта")
+        return
+    except gspread.exceptions.AuthenticationError as e:
+        logger.error(f"❌ ОШИБКА АУТЕНТИФИКАЦИИ: {e}")
+        logger.error(f"   Проверь GOOGLE_CREDENTIALS в секретах")
+        return
     except Exception as e:
-        logger.error(f"❌ Не удалось подключиться к таблице: {type(e).__name__} - {str(e)}")
-        import traceback
+        logger.error(f"❌ Неожиданная ошибка: {type(e).__name__}: {str(e)}")
         logger.error(f"Traceback:\n{traceback.format_exc()}")
         return
     
+    # Парсим валюты
     success_count = 0
     for currency in CURRENCIES_TO_PARSE:
         currency = currency.strip().upper()
@@ -158,7 +212,7 @@ def main():
             continue
             
         logger.info(f"\n{'='*50}")
-        logger.info(f"💱 Обработка: {currency}")
+        logger.info(f"💱 Обработка валюты: {currency}")
         logger.info(f"{'='*50}")
         
         try:
@@ -168,16 +222,18 @@ def main():
             if data and update_sheet_data(sheet, data, currency):
                 success_count += 1
             
-            time.sleep(2)
+            time.sleep(2)  # Пауза между запросами
             
         except Exception as e:
             logger.error(f"❌ Ошибка для {currency}: {e}")
             continue
     
+    # Итоги
     total = len([c for c in CURRENCIES_TO_PARSE if c.strip()])
-    logger.info(f"\n{'='*50}")
-    logger.info(f"🏁 Готово: {success_count}/{total}")
-    logger.info(f"{'='*50}")
+    logger.info(f"\n{'='*70}")
+    logger.info(f"🏁 ЗАВЕРШЕНИЕ РАБОТЫ")
+    logger.info(f"   Успешно обновлено: {success_count} из {total} валют")
+    logger.info(f"{'='*70}")
 
 if __name__ == "__main__":
     main()
