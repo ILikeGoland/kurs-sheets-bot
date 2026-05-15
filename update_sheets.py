@@ -163,8 +163,6 @@ def parse_banki_ru(currency_code):
         return []
 #==================================================================
 
-
-
 def update_sheet_data(sheet, data, currency_code):
     try:
         if not data:
@@ -179,16 +177,26 @@ def update_sheet_data(sheet, data, currency_code):
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
         
         for row in data:
-            row_with_time = row + [timestamp] if len(row) == 3 else row[:3] + [timestamp]
+            # Заменяем точки на запятые в числовых значениях (столбцы B и C)
+            row_with_time = []
+            for idx, value in enumerate(row):
+                if idx in [1, 2]:  # Столбцы с курсами (индексы 1 и 2)
+                    # Заменяем точку на запятую
+                    value = value.replace('.', ',')
+                row_with_time.append(value)
+            
+            row_with_time.append(timestamp)
             rows_to_write.append(row_with_time)
         
-        sheet.update(f"A3:D{len(rows_to_write) + 2}", rows_to_write)
+        sheet.update(values=rows_to_write, range_name=f"A3:D{len(rows_to_write) + 2}")
         logger.info(f"✅ Лист {currency_code} обновлён: {len(rows_to_write)} записей")
         return True
         
     except Exception as e:
         logger.error(f"❌ Ошибка записи в {currency_code}: {e}")
         return False
+
+#==================================================================
 
 def main():
     logger.info("=" * 70)
