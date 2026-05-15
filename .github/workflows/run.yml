@@ -1,0 +1,32 @@
+name: 🔄 Update Currency Rates
+
+on:
+  schedule:
+    # Каждый час с 9:00 до 20:00 МСК (UTC+3) по рабочим дням
+    - cron: '0 6-17 * * 1-5'
+  
+  workflow_dispatch:  # Ручной запуск
+
+jobs:
+  parse-and-update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🐍 Python Setup
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Install Dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: 🔄 Run Parser
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+        run: python update_sheets.py
