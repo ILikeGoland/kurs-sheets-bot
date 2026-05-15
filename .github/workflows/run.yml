@@ -2,24 +2,25 @@ name: 🔄 Update Currency Rates
 
 on:
   schedule:
-    # Каждый час с 9:00 до 20:00 МСК (UTC+3) по рабочим дням
     - cron: '0 6-17 * * 1-5'
-  
-  workflow_dispatch:  # Ручной запуск
+  workflow_dispatch:
 
 jobs:
   parse-and-update:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     
+    env:  # ← ДОБАВИТЬ ЭТО
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # ← ДОБАВИТЬ ЭТО
+    
     steps:
       - name: 📥 Checkout
-        uses: actions/checkout@v5  # Обновлена версия
+        uses: actions/checkout@v5
 
       - name: 🐍 Python Setup
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'  # Обновлена версия Python
+          python-version: '3.12'
 
       - name: 📦 Install Dependencies
         run: |
