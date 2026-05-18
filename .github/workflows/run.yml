@@ -2,7 +2,7 @@ name: 🔄 Update Currency Rates
 
 on:
   schedule:
-    - cron: '*/1 * * * *'  # Каждую минуту для теста        # '0 6-17 * * 1-5'
+    - cron: '*/5 * * * *'  # Каждую минуту для теста        # '0 6-17 * * 1-5'
   workflow_dispatch:
 
 jobs:
