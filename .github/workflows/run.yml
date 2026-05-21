@@ -5,15 +5,11 @@ on:
   #  - cron: '0 6-17 * * 1-5'
   workflow_dispatch:
 
-#env:
-#  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   parse-and-update:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     
-    # Даем процессу официальное разрешение удалять логи через консоль
     permissions:
       actions: write
     
@@ -23,6 +19,8 @@ jobs:
 
       - name: 🐍 Python Setup
         uses: actions/setup-python@v5
+        env:
+          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true # ← Убирает жёлтое предупреждение
         with:
           python-version: '3.12'
 
@@ -41,6 +39,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Находим прошлые запуски этого воркфлоу (исключая текущий) и удаляем их
-          gh run list --workflow "run.yml" --json databaseId --limit 50 | jq -r '.[].databaseId' | grep -v "${{ github.run_id }}" | xargs -I {} gh run delete {}
-
+          gh run list --workflow "🔄 Update Currency Rates" --json databaseId --limit 50 | jq -r '.[].databaseId' | grep -v "${{ github.run_id }}" | xargs -I {} gh run delete {}
