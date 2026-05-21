@@ -5,8 +5,8 @@ on:
   #  - cron: '0 6-17 * * 1-5'
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+#env:
+#  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   parse-and-update:
