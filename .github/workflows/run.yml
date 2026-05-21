@@ -36,9 +36,11 @@ jobs:
           SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
         run: python update_sheets.py
 
-      - name: 🗑️ Native Delete Run History
+      - name: 🗑️ Native Delete Old Runs
         if: success()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh run delete ${{ github.run_id }}
+          # Находим прошлые запуски этого воркфлоу (исключая текущий) и удаляем их
+          gh run list --workflow "run.yml" --json databaseId --limit 50 | jq -r '.[].databaseId' | grep -v "${{ github.run_id }}" | xargs -I {} gh run delete {}
+
