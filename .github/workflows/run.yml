@@ -5,13 +5,17 @@ on:
   #  - cron: '0 6-17 * * 1-5'
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   parse-and-update:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     
-    env:  # ← ДОБАВИТЬ ЭТО
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # ← ДОБАВИТЬ ЭТО
+    # Даем процессу официальное разрешение удалять логи через консоль
+    permissions:
+      actions: write
     
     steps:
       - name: 📥 Checkout
